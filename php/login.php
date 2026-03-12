@@ -1,6 +1,41 @@
 <?php
 header('Content-Type: application/json');
-require_once 'config.php';
+// --- Database Configuration (Merged for strict folder structure) ---
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
+
+$mysql_url = getenv('MYSQL_URL');
+if ($mysql_url) {
+    $url = parse_url($mysql_url);
+    $mysql_host = $url['host'];
+    $mysql_user = $url['user'];
+    $mysql_pass = $url['pass'];
+    $mysql_db   = ltrim($url['path'], '/');
+    $mysql_port = $url['port'] ?? 3306;
+} else {
+    $mysql_host = getenv('MYSQL_HOST') ?: 'localhost';
+    $mysql_user = getenv('MYSQL_USER') ?: 'root';
+    $mysql_pass = getenv('MYSQL_PASSWORD') ?: '';
+    $mysql_db   = getenv('MYSQL_DATABASE') ?: 'internship_db';
+    $mysql_port = getenv('MYSQL_PORT') ?: 3306;
+}
+
+try {
+    $mysql = @new mysqli($mysql_host, $mysql_user, $mysql_pass, $mysql_db, (int)$mysql_port);
+} catch (Exception $e) { $mysql = null; }
+
+$redis = null;
+try {
+    $redisHost = getenv('REDIS_HOST') ?: '127.0.0.1';
+    $redisPort = getenv('REDIS_PORT') ?: 6379;
+    $redisPassword = getenv('REDIS_PASSWORD') ?: null;
+    $params = ['scheme' => 'tcp', 'host' => $redisHost, 'port' => (int)$redisPort];
+    if ($redisPassword) $params['password'] = $redisPassword;
+    $redis = new Predis\Client($params);
+    $redis->connect();
+} catch (Exception $e) { }
+
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'] ?? '';
