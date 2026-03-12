@@ -23,11 +23,11 @@ RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf && \
 # Set working directory to Apache document root
 WORKDIR /var/www/html/
 
-# Copy all project files into the container
+# Copy project files
 COPY . /var/www/html/
 
-# Ensure proper permissions
-RUN chown -R www-data:www-data /var/www/html/
+# Ensure script executability
+RUN chmod +x /var/www/html/docker-entrypoint.sh
 
 # Copy Composer from the official Composer image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -36,9 +36,8 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
 RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs
 
-# Expose port (Railway dynamic PORT support)
-ENV PORT=80
-RUN sed -i "s/80/\${PORT}/g" /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
+# Expose port (Internal documentation)
+EXPOSE 80
 
-# Start Apache in the foreground
-CMD ["apache2-foreground"]
+# Use the entrypoint script for runtime setup
+ENTRYPOINT ["/var/www/html/docker-entrypoint.sh"]
