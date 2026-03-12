@@ -61,6 +61,8 @@ try {
                             break 5;
                         }
                         $last_error = $mysql->connect_error;
+                        $last_h = $h;
+                        $last_prt = $prt;
                     }
                 }
             }
@@ -68,8 +70,8 @@ try {
     }
 
     if (!$mysql || $mysql->connect_error) {
-        $p_hint = (strlen($p_val) > 0) ? ($p_val[0] . str_repeat('*', strlen($p_val)-1)) : "EMPTY";
-        throw new Exception("MySQL Fail. Keys: ".implode(",", $mysql_keys).". Err: $last_error [H:$h_val U:$u_val P:$p_hint]");
+        $p_hint = (strlen($p_val) > 0) ? ($p_val[0] . str_repeat('*', min(strlen($p_val)-1, 10))) : "EMPTY";
+        throw new Exception("MySQL Fail. Keys: ".implode(",", $mysql_keys).". Err: $last_error [H:$last_h Port:$last_prt U:$u_val P:$p_hint]");
     }
 
     // Select DB from our list
