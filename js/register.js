@@ -41,9 +41,7 @@ $(document).ready(function () {
                         msg = resp.message;
                     }
                 } catch (e) {
-                    // If parsing fails, use the status text or a generic message
-                    if (xhr.status === 404) msg = "Server file not found (404).";
-                    else if (xhr.status === 500) msg = "Internal Server Error (500). Check PHP logs.";
+                    msg = "Server Debug: " + xhr.responseText.substring(0, 100);
                 }
 
                 alert("Error: " + msg);
