@@ -8,7 +8,7 @@ try {
     }
 
     // --- Master Smart-Connect (Railway/Docker Exhaustive) ---
-    mysqli_report(MYSQL_REPORT_OFF);
+    mysqli_report(MYSQLI_REPORT_OFF);
 
     $hosts = [getenv('MYSQLHOST'), getenv('MYSQL_HOST'), 'mysql.railway.internal', 'localhost'];
     $users = [getenv('MYSQLUSER'), getenv('MYSQL_USER'), 'root'];
