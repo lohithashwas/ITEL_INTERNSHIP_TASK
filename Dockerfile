@@ -26,8 +26,9 @@ WORKDIR /var/www/html/
 # Copy project files
 COPY . /var/www/html/
 
-# Ensure script executability
-RUN chmod +x /var/www/html/docker-entrypoint.sh
+# Ensure proper permissions and script executability
+RUN chown -R www-data:www-data /var/www/html/ && \
+    chmod +x /var/www/html/docker-entrypoint.sh
 
 # Copy Composer from the official Composer image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
