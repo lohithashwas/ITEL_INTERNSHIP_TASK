@@ -40,7 +40,7 @@ try {
         foreach ($users as $u) {
             foreach ($passes as $p) {
                 foreach ($ports as $prt) {
-                    foreach ($dbs as $db) {
+                    foreach ($env_dbs as $db) {
                         // TRY 1: Connect with DB name (Essential for Railway permissions)
                         $mysql = @new mysqli($h, $u, $p, $db, (int)$prt);
                         if (!$mysql->connect_error) break 5;
@@ -62,14 +62,14 @@ try {
     }
 
     $db_found = false;
-    foreach ($dbs as $db) {
+    foreach ($env_dbs as $db) {
         if ($mysql->select_db($db)) {
             $db_found = true;
             break;
         }
     }
     if (!$db_found) {
-        $target_db = $dbs[0] ?? 'railway';
+        $target_db = $env_dbs[0] ?? 'railway';
         $mysql->query("CREATE DATABASE IF NOT EXISTS `$target_db`") or throw new Exception("DB Setup Fail");
         $mysql->select_db($target_db);
     }
