@@ -8,6 +8,7 @@ try {
     }
 
     // --- Improved Database Configuration (Railway Optimized) ---
+    mysqli_report(MYSQLI_REPORT_OFF); 
     $mysql_host = getenv('MYSQLHOST') ?: getenv('MYSQL_HOST') ?: 'localhost';
     $mysql_user = getenv('MYSQLUSER') ?: getenv('MYSQL_USER') ?: 'root';
     $mysql_pass = getenv('MYSQLPASSWORD') ?: getenv('MYSQL_PASSWORD') ?: '';
