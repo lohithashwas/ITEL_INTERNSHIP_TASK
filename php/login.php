@@ -7,58 +7,52 @@ try {
         require_once __DIR__ . '/../vendor/autoload.php';
     }
 
-    // --- Definitive Master Connect (Railway/Docker) ---
+    // --- Extreme Master Connect (Railway/Docker Deep Audit) ---
     mysqli_report(MYSQLI_REPORT_OFF);
 
-    $get_any = function($key) {
-        $val = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
-        return is_string($val) ? trim($val) : $val;
-    };
+    $get_raw = function($key) { return $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key); };
 
-    $env_hosts = array_filter([$get_any('MYSQL_HOST'), $get_any('MYSQLHOST'), 'mysql.railway.internal', 'mysql', '127.0.0.1']);
-    $env_users = array_filter([$get_any('MYSQL_USER'), $get_any('MYSQLUSER'), 'root']);
-    $env_passes = [(string)$get_any('MYSQL_PASSWORD'), (string)$get_any('MYSQLPASSWORD'), ""];
-    $env_ports = array_filter([$get_any('MYSQL_PORT'), $get_any('MYSQLPORT'), 3306]);
-    $env_dbs   = array_filter([$get_any('MYSQL_DATABASE'), $get_any('MYSQLDATABASE'), 'railway', 'internship_db']);
+    // 1. Gather all possible credentials
+    $raw_passes = array_filter([(string)$get_raw('MYSQL_PASSWORD'), (string)$get_raw('MYSQLPASSWORD')], 'strlen');
+    $passes = [""];
+    foreach($raw_passes as $rp) {
+        $passes[] = $rp;
+        $passes[] = trim($rp);
+    }
+    $passes = array_values(array_unique($passes));
+
+    $users = array_values(array_unique(array_filter([$get_raw('MYSQL_USER'), $get_raw('MYSQLUSER'), 'root', 'railway', 'intern', 'mysql'])));
+    $hosts = array_values(array_unique(array_filter([$get_raw('MYSQL_HOST'), $get_raw('MYSQLHOST'), 'mysql.railway.internal', 'mysql', 'db', 'database', '127.0.0.1'])));
+    $ports = array_values(array_unique(array_filter([(int)$get_raw('MYSQL_PORT'), (int)$get_raw('MYSQLPORT'), 3306])));
+    $dbs   = array_values(array_unique(array_filter([$get_raw('MYSQL_DATABASE'), $get_raw('MYSQLDATABASE'), 'railway', 'internship_db'])));
 
     $mysql = null;
     $history = [];
-    
-    $hosts = array_values(array_unique(array_filter($env_hosts)));
-    $users = array_values(array_unique(array_filter($env_users)));
-    $passes = array_values(array_unique($env_passes));
-    $ports = array_values(array_unique(array_filter($env_ports)));
-
-    // DNS Check
     $dns_info = [];
-    foreach($hosts as $h) {
-        $ip = gethostbyname($h);
-        $dns_info[] = "$h=" . ($ip === $h ? "DNS_FAIL" : $ip);
-    }
+    foreach($hosts as $h) { $ip = gethostbyname($h); $dns_info[] = "$h=" . ($ip === $h ? "DNS_FAIL" : $ip); }
 
     foreach ($hosts as $h) {
         foreach ($users as $u) {
             foreach ($passes as $p) {
                 foreach ($ports as $prt) {
                     foreach ($dbs as $db) {
-                        // TRY 1: Connect with DB name (Essential for Railway permissions)
                         $mysql = @new mysqli($h, $u, $p, $db, (int)$prt);
                         if (!$mysql->connect_error) break 5;
-                        $history[] = "$h:$prt($u)->$db=" . $mysql->connect_error;
+                        $history[] = "$h($u)->$db=" . $mysql->connect_error;
                     }
-                    // TRY 2: Connect without DB name (Backup)
                     $mysql = @new mysqli($h, $u, $p, "", (int)$prt);
                     if (!$mysql->connect_error) break 4;
-                    $history[] = "$h:$prt($u)=" . $mysql->connect_error;
+                    $history[] = "$h($u)=" . $mysql->connect_error;
                 }
             }
         }
     }
 
     if (!$mysql || $mysql->connect_error) {
-        $masked_p = (strlen($env_passes[0]) > 0) ? ($env_passes[0][0] . "***") : "EMPTY";
-        $diag = "DNS: " . implode(",", $dns_info) . " | P_Hint: $masked_p";
-        throw new Exception("MySQL Fail. $diag. Hist: " . implode(" | ", array_unique($history)));
+        $primary_p = $raw_passes[0] ?? "";
+        $p_diag = (strlen($primary_p) > 0) ? ($primary_p[0] . "...(Len:".strlen($primary_p).")") : "EMPTY";
+        $diag_msg = "DNS: " . implode(",", $dns_info) . " | P_Diag: $p_diag";
+        throw new Exception("MySQL Reject. $diag_msg. Hist: " . implode(" | ", array_slice(array_unique($history), -4)));
     }
 
     $db_found = false;
