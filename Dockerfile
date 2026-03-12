@@ -36,5 +36,9 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
 RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs
 
-# Expose port (Render automatically detects this)
-EXPOSE 80
+# Expose port (Railway dynamic PORT support)
+ENV PORT=80
+RUN sed -i "s/80/\${PORT}/g" /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
+
+# Start Apache in the foreground
+CMD ["apache2-foreground"]
