@@ -1,7 +1,6 @@
 <?php
 header('Content-Type: application/json');
-// --- Database Configuration (Railway Optimized) ---
-if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+
 try {
     // --- Database Configuration (Railway Optimized) ---
     if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
