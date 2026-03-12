@@ -17,7 +17,8 @@ try {
 
     $env_hosts = array_filter([$get_any('MYSQL_HOST'), $get_any('MYSQLHOST'), 'mysql.railway.internal', 'mysql', '127.0.0.1']);
     $env_users = array_filter([$get_any('MYSQL_USER'), $get_any('MYSQLUSER'), 'root']);
-    $env_passes = [(string)$get_any('MYSQL_PASSWORD'), (string)$get_any('MYSQLPASSWORD'), ""];
+    $mysql_pass = $get_any('MYSQL_PASSWORD') ?: $get_any('MYSQLPASSWORD');
+    $env_passes = $mysql_pass ? [$mysql_pass] : [""];
     $env_ports = array_filter([$get_any('MYSQL_PORT'), $get_any('MYSQLPORT'), 3306]);
     $env_dbs   = array_filter([$get_any('MYSQL_DATABASE'), $get_any('MYSQLDATABASE'), 'railway', 'internship_db']);
 
@@ -28,6 +29,7 @@ try {
     $users = array_values(array_unique(array_filter($env_users)));
     $passes = array_values(array_unique($env_passes));
     $ports = array_values(array_unique(array_filter($env_ports)));
+    $dbs = array_values(array_unique(array_filter($env_dbs)));
 
     // DNS Check
     $dns_info = [];
