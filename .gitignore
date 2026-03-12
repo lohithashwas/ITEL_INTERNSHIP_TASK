@@ -1,0 +1,14 @@
+vendor/
+composer.phar
+composer-setup.php
+php_errors.log
+info.html
+query
+verify_test.ps1
+DEPLOYMENT.md
+RENDER_DEPLOYMENT.md
+vercel.json
+.vscode/
+.idea/
+*.log
+.DS_Store

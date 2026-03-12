@@ -1,0 +1,8 @@
+{
+    "name": "project/internship-auth",
+    "description": "Internship Project",
+    "require": {
+        "mongodb/mongodb": "^2.2",
+        "predis/predis": "^2.0"
+    }
+}

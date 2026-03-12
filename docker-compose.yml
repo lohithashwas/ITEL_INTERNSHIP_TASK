@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+      - MYSQL_HOST=db
+      - MYSQL_USER=intern
+      - MYSQL_PASSWORD=internpass
+      - MYSQL_DATABASE=internship_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - db
+      - mongo
+      - redis
+
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpass
+      - MYSQL_DATABASE=internship_db
+      - MYSQL_USER=intern
+      - MYSQL_PASSWORD=internpass
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql_data:
+  mongo_data:
