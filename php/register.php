@@ -17,7 +17,8 @@ try {
 
     $env_hosts = array_filter([$get_any('MYSQL_HOST'), $get_any('MYSQLHOST'), 'mysql.railway.internal', 'mysql', '127.0.0.1']);
     $env_users = array_filter([$get_any('MYSQL_USER'), $get_any('MYSQLUSER'), 'root']);
-    $env_passes = [(string)$get_any('MYSQL_PASSWORD'), (string)$get_any('MYSQLPASSWORD'), ""];
+    $mysql_pass = $get_any('MYSQL_PASSWORD') ?: $get_any('MYSQLPASSWORD');
+    $env_passes = $mysql_pass ? [$mysql_pass] : [""];
     $env_ports = array_filter([$get_any('MYSQL_PORT'), $get_any('MYSQLPORT'), 3306]);
     $env_dbs   = array_filter([$get_any('MYSQL_DATABASE'), $get_any('MYSQLDATABASE'), 'railway', 'internship_db']);
 
@@ -28,6 +29,7 @@ try {
     $users = array_values(array_unique(array_filter($env_users)));
     $passes = array_values(array_unique($env_passes));
     $ports = array_values(array_unique(array_filter($env_ports)));
+    $dbs = array_values(array_unique(array_filter($env_dbs)));
 
     // DNS Check
     $dns_info = [];
@@ -40,7 +42,7 @@ try {
         foreach ($users as $u) {
             foreach ($passes as $p) {
                 foreach ($ports as $prt) {
-                    foreach ($dbs as $db) {
+                    foreach ($env_dbs as $db) {
                         // TRY 1: Connect with DB name (Essential for Railway permissions)
                         $mysql = @new mysqli($h, $u, $p, $db, (int)$prt);
                         if (!$mysql->connect_error) break 5;
@@ -62,14 +64,14 @@ try {
     }
 
     $db_found = false;
-    foreach ($dbs as $db) {
+    foreach ($env_dbs as $db) {
         if ($mysql->select_db($db)) {
             $db_found = true;
             break;
         }
     }
     if (!$db_found) {
-        $target_db = $dbs[0] ?? 'railway';
+        $target_db = $env_dbs[0] ?? 'railway';
         $mysql->query("CREATE DATABASE IF NOT EXISTS `$target_db`") or throw new Exception("DB Setup Fail");
         $mysql->select_db($target_db);
     }

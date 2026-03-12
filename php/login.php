@@ -12,6 +12,7 @@ try {
 
     $get_raw = function($key) { return $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key); };
 
+<<<<<<< HEAD
     // 1. Gather all possible credentials
     $raw_passes = array_filter([(string)$get_raw('MYSQL_PASSWORD'), (string)$get_raw('MYSQLPASSWORD')], 'strlen');
     $passes = [""];
@@ -28,6 +29,25 @@ try {
 
     $mysql = null;
     $history = [];
+=======
+    $env_hosts = array_filter([$get_any('MYSQL_HOST'), $get_any('MYSQLHOST'), 'mysql.railway.internal', 'mysql', '127.0.0.1']);
+    $env_users = array_filter([$get_any('MYSQL_USER'), $get_any('MYSQLUSER'), 'root']);
+    $mysql_pass = $get_any('MYSQL_PASSWORD') ?: $get_any('MYSQLPASSWORD');
+    $env_passes = $mysql_pass ? [$mysql_pass] : [""];
+    $env_ports = array_filter([$get_any('MYSQL_PORT'), $get_any('MYSQLPORT'), 3306]);
+    $env_dbs   = array_filter([$get_any('MYSQL_DATABASE'), $get_any('MYSQLDATABASE'), 'railway', 'internship_db']);
+
+    $mysql = null;
+    $history = [];
+    
+    $hosts = array_values(array_unique(array_filter($env_hosts)));
+    $users = array_values(array_unique(array_filter($env_users)));
+    $passes = array_values(array_unique($env_passes));
+    $ports = array_values(array_unique(array_filter($env_ports)));
+    $dbs = array_values(array_unique(array_filter($env_dbs)));
+
+    // DNS Check
+>>>>>>> 09ba8bbec3d475fda99ae2101af069a05d397d35
     $dns_info = [];
     foreach($hosts as $h) { $ip = gethostbyname($h); $dns_info[] = "$h=" . ($ip === $h ? "DNS_FAIL" : $ip); }
 
