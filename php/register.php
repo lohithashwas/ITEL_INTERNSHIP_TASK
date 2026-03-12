@@ -1,29 +1,39 @@
 <?php
 header('Content-Type: application/json');
-// --- Database Configuration (Merged for strict folder structure) ---
+// --- Database Configuration (Railway Optimized) ---
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
     require_once __DIR__ . '/../vendor/autoload.php';
 }
 
-$mysql_url = getenv('MYSQL_URL');
-if ($mysql_url) {
-    $url = parse_url($mysql_url);
-    $mysql_host = $url['host'];
-    $mysql_user = $url['user'];
-    $mysql_pass = $url['pass'];
-    $mysql_db   = ltrim($url['path'], '/');
-    $mysql_port = $url['port'] ?? 3306;
-} else {
-    $mysql_host = getenv('MYSQL_HOST') ?: 'localhost';
-    $mysql_user = getenv('MYSQL_USER') ?: 'root';
-    $mysql_pass = getenv('MYSQL_PASSWORD') ?: '';
-    $mysql_db   = getenv('MYSQL_DATABASE') ?: 'internship_db';
-    $mysql_port = getenv('MYSQL_PORT') ?: 3306;
+$mysql_host = getenv('MYSQLHOST') ?: getenv('MYSQL_HOST') ?: 'localhost';
+$mysql_user = getenv('MYSQLUSER') ?: getenv('MYSQL_USER') ?: 'root';
+$mysql_pass = getenv('MYSQLPASSWORD') ?: getenv('MYSQL_PASSWORD') ?: '';
+$mysql_db   = getenv('MYSQLDATABASE') ?: getenv('MYSQL_DATABASE') ?: 'railway';
+$mysql_port = getenv('MYSQLPORT') ?: getenv('MYSQL_PORT') ?: 3306;
+
+// Fallback to MYSQL_URL if provided
+if ($url = getenv('MYSQL_URL')) {
+    $parsed = parse_url($url);
+    $mysql_host = $parsed['host'] ?? $mysql_host;
+    $mysql_user = $parsed['user'] ?? $mysql_user;
+    $mysql_pass = $parsed['pass'] ?? $mysql_pass;
+    $mysql_db   = ltrim($parsed['path'] ?? '', '/') ?: $mysql_db;
+    $mysql_port = $parsed['port'] ?? $mysql_port;
 }
 
-try {
-    $mysql = @new mysqli($mysql_host, $mysql_user, $mysql_pass, $mysql_db, (int)$mysql_port);
-} catch (Exception $e) { $mysql = null; }
+$mysql = new mysqli($mysql_host, $mysql_user, $mysql_pass, $mysql_db, (int)$mysql_port);
+if ($mysql->connect_error) {
+    echo json_encode(['status' => 'error', 'message' => 'Database Connection Failed: ' . $mysql->connect_error]);
+    exit;
+}
+
+// Auto-setup table
+$mysql->query("CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)");
 
 $mongoCollection = null;
 try {
