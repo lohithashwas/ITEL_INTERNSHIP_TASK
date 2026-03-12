@@ -7,37 +7,69 @@ try {
         require_once __DIR__ . '/../vendor/autoload.php';
     }
 
-    // --- Improved Database Configuration (Railway Optimized) ---
-    mysqli_report(MYSQLI_REPORT_OFF); 
-    $mysql_host = getenv('MYSQLHOST') ?: getenv('MYSQL_HOST') ?: 'localhost';
-    $mysql_user = getenv('MYSQLUSER') ?: getenv('MYSQL_USER') ?: 'root';
-    $mysql_pass = getenv('MYSQLPASSWORD') ?: getenv('MYSQL_PASSWORD') ?: '';
-    $mysql_db   = getenv('MYSQLDATABASE') ?: getenv('MYSQL_DATABASE') ?: 'railway';
-    $mysql_port = getenv('MYSQLPORT') ?: getenv('MYSQL_PORT') ?: 3306;
+    // --- Master Smart-Connect (Railway/Docker Exhaustive) ---
+    mysqli_report(MYSQL_REPORT_OFF);
 
+    $hosts = [getenv('MYSQLHOST'), getenv('MYSQL_HOST'), 'mysql.railway.internal', 'localhost'];
+    $users = [getenv('MYSQLUSER'), getenv('MYSQL_USER'), 'root'];
+    $passes = [getenv('MYSQLPASSWORD'), getenv('MYSQL_PASSWORD'), ''];
+    $ports = [getenv('MYSQLPORT'), getenv('MYSQL_PORT'), 3306];
+    $dbs = [getenv('MYSQLDATABASE'), getenv('MYSQL_DATABASE'), 'railway', 'internship_db'];
+
+    // Also parse MYSQL_URL as a top priority if it exists
     if ($url = getenv('MYSQL_URL')) {
         $parsed = parse_url($url);
-        $mysql_host = $parsed['host'] ?? $mysql_host;
-        $mysql_user = $parsed['user'] ?? $mysql_user;
-        $mysql_pass = $parsed['pass'] ?? $mysql_pass;
-        $mysql_db   = ltrim($parsed['path'] ?? '', '/') ?: $mysql_db;
-        $mysql_port = $parsed['port'] ?? $mysql_port;
+        array_unshift($hosts, $parsed['host'] ?? null);
+        array_unshift($users, $parsed['user'] ?? null);
+        array_unshift($passes, $parsed['pass'] ?? null);
+        array_unshift($ports, $parsed['port'] ?? null);
+        array_unshift($dbs, ltrim($parsed['path'] ?? '', '/') ?: null);
     }
 
-    // 1. Connect to MySQL (without DB first to isolate access issues)
-    $mysql = @new mysqli($mysql_host, $mysql_user, $mysql_pass, "", (int)$mysql_port);
-    if ($mysql->connect_error) {
-        $debugInfo = "Host: $mysql_host, User: $mysql_user, Port: $mysql_port";
-        throw new Exception("Connection Failed. Check your Railway 'Variables'. Details: " . $mysql->connect_error . " [$debugInfo]");
+    $mysql = null;
+    $last_error = "";
+    
+    // Clean arrays (remove nulls/false)
+    $hosts = array_values(array_filter($hosts));
+    $users = array_values(array_filter($users));
+    $passes = array_values($passes); // Keep empty strings
+    $ports = array_values(array_filter($ports));
+    $dbs = array_values(array_filter($dbs));
+
+    foreach ($hosts as $h) {
+        foreach ($users as $u) {
+            foreach ($passes as $p) {
+                foreach ($ports as $prt) {
+                    $mysql = @new mysqli($h, $u, $p, "", (int)$prt);
+                    if (!$mysql->connect_error) {
+                        break 4; // Absolute success!
+                    }
+                    $last_error = $mysql->connect_error;
+                }
+            }
+        }
     }
 
-    // 2. Select or Create Database
-    if (!$mysql->select_db($mysql_db)) {
-        $mysql->query("CREATE DATABASE IF NOT EXISTS `$mysql_db`") or throw new Exception("Could not create DB '$mysql_db': " . $mysql->error);
-        $mysql->select_db($mysql_db);
+    if (!$mysql || $mysql->connect_error) {
+        throw new Exception("Connection failed after trying all variables. Last Error: $last_error [H:".($hosts[0]??'')." U:".($users[0]??'')."]");
     }
 
-    // 3. Auto-setup table
+    // Select DB from our list
+    $db_found = false;
+    foreach ($dbs as $db) {
+        if ($mysql->select_db($db)) {
+            $db_found = true;
+            break;
+        }
+    }
+
+    if (!$db_found) {
+        $target_db = $dbs[0] ?? 'railway';
+        $mysql->query("CREATE DATABASE IF NOT EXISTS `$target_db`") or throw new Exception("DB Setup Fail: " . $mysql->error);
+        $mysql->select_db($target_db);
+    }
+
+    // Auto-setup table
     $mysql->query("CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
     $mongoCollection = null;
