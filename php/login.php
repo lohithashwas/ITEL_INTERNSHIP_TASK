@@ -10,7 +10,11 @@ try {
     // --- Master Smart-Connect (Railway/Docker Exhaustive) ---
     mysqli_report(MYSQLI_REPORT_OFF);
 
-    $hosts = [getenv('MYSQLHOST'), getenv('MYSQL_HOST'), 'mysql.railway.internal', 'localhost'];
+    $env_keys = array_keys(array_merge($_ENV, getenv()));
+    $mysql_keys = array_filter($env_keys, function($k) { return strpos($k, 'MYSQL') !== false; });
+    $diag_keys = "Keys: " . implode(", ", $mysql_keys);
+
+    $hosts = [getenv('MYSQLHOST'), getenv('MYSQL_HOST'), 'mysql.railway.internal', '127.0.0.1'];
     $users = [getenv('MYSQLUSER'), getenv('MYSQL_USER'), 'root'];
     $passes = [getenv('MYSQLPASSWORD'), getenv('MYSQL_PASSWORD'), ''];
     $ports = [getenv('MYSQLPORT'), getenv('MYSQL_PORT'), 3306];
@@ -28,25 +32,28 @@ try {
     $mysql = null;
     $last_error = "";
     
-    $hosts = array_values(array_filter($hosts));
-    $users = array_values(array_filter($users));
-    $passes = array_values($passes); 
-    $ports = array_values(array_filter($ports));
-    $dbs = array_values(array_filter($dbs));
+    $hosts = array_values(array_unique(array_filter($hosts)));
+    $users = array_values(array_unique(array_filter($users)));
+    $passes = array_values(array_unique($passes));
+    $ports = array_values(array_unique(array_filter($ports)));
+    $dbs = array_values(array_unique(array_filter($dbs)));
 
     foreach ($hosts as $h) {
         foreach ($users as $u) {
             foreach ($passes as $p) {
                 foreach ($ports as $prt) {
-                    $mysql = @new mysqli($h, $u, $p, "", (int)$prt);
-                    if (!$mysql->connect_error) break 4;
-                    $last_error = $mysql->connect_error;
+                    foreach ([true, false] as $with_db) {
+                        $db_to_use = $with_db ? ($dbs[0] ?? 'railway') : "";
+                        $mysql = @new mysqli($h, $u, $p, $db_to_use, (int)$prt);
+                        if (!$mysql->connect_error) break 5;
+                        $last_error = $mysql->connect_error;
+                    }
                 }
             }
         }
     }
 
-    if (!$mysql || $mysql->connect_error) throw new Exception("Connection failed. Last Error: $last_error");
+    if (!$mysql || $mysql->connect_error) throw new Exception("MySQL Fail. $diag_keys. Last Err: $last_error");
 
     $db_found = false;
     foreach ($dbs as $db) {
