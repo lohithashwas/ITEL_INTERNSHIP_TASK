@@ -16,16 +16,26 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
 }
 
 // --- MySQL Configuration ---
-$mysql_host = getenv('MYSQL_HOST') ?: 'localhost';
-$mysql_user = getenv('MYSQL_USER') ?: 'root';
-$mysql_pass = getenv('MYSQL_PASSWORD') ?: '';
-$mysql_db   = getenv('MYSQL_DATABASE') ?: 'internship_db';
-$mysql_port = getenv('MYSQL_PORT') ?: 3306;
+$mysql_url = getenv('MYSQL_URL');
+if ($mysql_url) {
+    $url = parse_url($mysql_url);
+    $mysql_host = $url['host'];
+    $mysql_user = $url['user'];
+    $mysql_pass = $url['pass'];
+    $mysql_db   = ltrim($url['path'], '/');
+    $mysql_port = $url['port'] ?? 3306;
+} else {
+    $mysql_host = getenv('MYSQL_HOST') ?: 'localhost';
+    $mysql_user = getenv('MYSQL_USER') ?: 'root';
+    $mysql_pass = getenv('MYSQL_PASSWORD') ?: '';
+    $mysql_db   = getenv('MYSQL_DATABASE') ?: 'internship_db';
+    $mysql_port = getenv('MYSQL_PORT') ?: 3306;
+}
 
 try {
-    $mysql = new mysqli($mysql_host, $mysql_user, $mysql_pass, $mysql_db, (int)$mysql_port);
+    $mysql = @new mysqli($mysql_host, $mysql_user, $mysql_pass, $mysql_db, (int)$mysql_port);
     if ($mysql->connect_error) {
-        throw new Exception("MySQL Connection Failed: " . $mysql->connect_error);
+        throw new Exception("MySQL Connection Failed (" . $mysql->connect_errno . "): " . $mysql->connect_error);
     }
 } catch (Exception $e) {
     http_response_code(500);
