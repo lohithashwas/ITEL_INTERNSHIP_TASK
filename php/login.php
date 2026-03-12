@@ -7,68 +7,54 @@ try {
         require_once __DIR__ . '/../vendor/autoload.php';
     }
 
-    // --- Master Smart-Connect (Railway/Docker Exhaustive) ---
+    // --- Definitive Master Connect (Railway/Docker) ---
     mysqli_report(MYSQLI_REPORT_OFF);
 
-    $get_env = function($key) {
+    $get_any = function($key) {
         return $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key) ?: null;
     };
 
-    $env_keys = array_keys(array_merge($_ENV, $_SERVER, getenv()));
-    $mysql_keys = array_filter($env_keys, function($k) { return strpos($k, 'MYSQL') !== false; });
-    
-    $h_val = $get_env('MYSQLHOST') ?: $get_env('MYSQL_HOST') ?: 'mysql.railway.internal';
-    $u_val = $get_env('MYSQLUSER') ?: $get_env('MYSQL_USER') ?: 'root';
-    $p_val = $get_env('MYSQLPASSWORD') ?: $get_env('MYSQL_PASSWORD') ?: "";
-    $prt_val = $get_env('MYSQLPORT') ?: $get_env('MYSQL_PORT') ?: 3306;
-    $db_val = $get_env('MYSQLDATABASE') ?: $get_env('MYSQL_DATABASE') ?: 'railway';
+    $env_hosts = array_filter([$get_any('MYSQL_HOST'), $get_any('MYSQLHOST'), 'mysql.railway.internal', 'mysql', '127.0.0.1']);
+    $env_users = array_filter([$get_any('MYSQL_USER'), $get_any('MYSQLUSER'), 'root']);
+    $env_passes = [$get_any('MYSQL_PASSWORD'), $get_any('MYSQLPASSWORD'), ""];
+    $env_ports = array_filter([$get_any('MYSQL_PORT'), $get_any('MYSQLPORT'), 3306]);
+    $env_dbs   = array_filter([$get_any('MYSQL_DATABASE'), $get_any('MYSQLDATABASE'), 'railway', 'internship_db']);
 
-    $hosts = [$h_val, 'mysql.railway.internal', '127.0.0.1'];
-    $users = [$u_val, 'root', 'railway'];
-    $passes = [$p_val, ""];
-    $ports = [$prt_val, 3306];
-    $dbs = [$db_val, 'railway', 'internship_db'];
-
-    if ($url = $get_env('MYSQL_URL')) {
-        $parsed = parse_url($url);
-        if ($parsed) {
-            array_unshift($hosts, $parsed['host'] ?? null);
-            array_unshift($users, $parsed['user'] ?? null);
-            array_unshift($passes, $parsed['pass'] ?? null);
-            array_unshift($ports, $parsed['port'] ?? null);
-            array_unshift($dbs, ltrim($parsed['path'] ?? '', '/') ?: null);
+    if ($url = $get_any('MYSQL_URL')) {
+        $p = parse_url($url);
+        if ($p) {
+            array_unshift($env_hosts, $p['host'] ?? null);
+            array_unshift($env_users, $p['user'] ?? null);
+            array_unshift($env_passes, $p['pass'] ?? null);
+            array_unshift($env_ports, $p['port'] ?? null);
+            array_unshift($env_dbs, ltrim($p['path'] ?? '', '/') ?: null);
         }
     }
 
     $mysql = null;
-    $last_error = "";
+    $history = [];
     
-    $hosts = array_values(array_unique(array_filter($hosts)));
-    $users = array_values(array_unique(array_filter($users)));
-    $passes = array_values(array_unique($passes));
-    $ports = array_values(array_unique(array_filter($ports)));
-    $dbs = array_values(array_unique(array_filter($dbs)));
+    $hosts = array_values(array_unique(array_filter($env_hosts)));
+    $users = array_values(array_unique(array_filter($env_users)));
+    $passes = array_values(array_unique($env_passes));
+    $ports = array_values(array_unique(array_filter($env_ports)));
+    $dbs = array_values(array_unique(array_filter($env_dbs)));
 
     foreach ($hosts as $h) {
         foreach ($users as $u) {
             foreach ($passes as $p) {
                 foreach ($ports as $prt) {
-                    foreach ([true, false] as $with_db) {
-                        $db_to_use = $with_db ? ($dbs[0] ?? "") : "";
-                        $mysql = @new mysqli($h, $u, $p, $db_to_use, (int)$prt);
-                        if (!$mysql->connect_error) break 5;
-                        $last_error = $mysql->connect_error;
-                        $last_h = $h;
-                        $last_prt = $prt;
-                    }
+                    $mysql = @new mysqli($h, $u, $p, "", (int)$prt);
+                    if (!$mysql->connect_error) break 4;
+                    $history[] = "$h:$prt=" . $mysql->connect_error;
                 }
             }
         }
     }
 
     if (!$mysql || $mysql->connect_error) {
-        $p_hint = (strlen($p_val) > 0) ? ($p_val[0] . "***") : "EMPTY";
-        throw new Exception("MySQL Fail. Keys: ".implode(",", $mysql_keys).". Err: $last_error [H:$last_h Port:$last_prt U:$u_val P:$p_hint]");
+        $masked_p = ($env_passes[0] && strlen($env_passes[0]) > 0) ? ($env_passes[0][0] . "***") : "EMPTY";
+        throw new Exception("Connection Failed. Diag: H:" . ($hosts[0]??'N/A') . " P_Hint: $masked_p. History: " . implode("|", array_slice($history, -2)));
     }
 
     $db_found = false;
