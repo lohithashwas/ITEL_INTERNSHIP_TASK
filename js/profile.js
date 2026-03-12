@@ -27,17 +27,17 @@ $(document).ready(function () {
                 window.location.href = 'login.html';
             }
         },
-        error: function (xhr, status, error) {
-            console.error(xhr.responseText);
-            var msg = "Error fetching profile.";
-            try {
-                var resp = JSON.parse(xhr.responseText);
-                if (resp.message) msg += "\nServer says: " + resp.message;
-            } catch (e) {
-                msg += "\nDetails: " + xhr.responseText.substring(0, 100);
+            error: function (xhr, status, error) {
+                console.error("Raw response:", xhr.responseText);
+                var msg = "An error occurred during login.";
+                try {
+                    var resp = JSON.parse(xhr.responseText);
+                    if (resp.message) msg = resp.message;
+                } catch (e) {
+                    msg = "Server Debug: " + xhr.responseText.substring(0, 100);
+                }
+                alert("Error: " + msg);
             }
-            alert(msg);
-        }
     });
 
     // Logout
