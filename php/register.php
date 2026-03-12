@@ -7,6 +7,7 @@ try {
         require_once __DIR__ . '/../vendor/autoload.php';
     }
 
+    // --- Improved Database Configuration (Railway Optimized) ---
     $mysql_host = getenv('MYSQLHOST') ?: getenv('MYSQL_HOST') ?: 'localhost';
     $mysql_user = getenv('MYSQLUSER') ?: getenv('MYSQL_USER') ?: 'root';
     $mysql_pass = getenv('MYSQLPASSWORD') ?: getenv('MYSQL_PASSWORD') ?: '';
@@ -22,11 +23,20 @@ try {
         $mysql_port = $parsed['port'] ?? $mysql_port;
     }
 
-    $mysql = @new mysqli($mysql_host, $mysql_user, $mysql_pass, $mysql_db, (int)$mysql_port);
+    // 1. Connect to MySQL (without DB first to isolate access issues)
+    $mysql = @new mysqli($mysql_host, $mysql_user, $mysql_pass, "", (int)$mysql_port);
     if ($mysql->connect_error) {
-        throw new Exception("Database Connection Failed: " . $mysql->connect_error);
+        $debugInfo = "Host: $mysql_host, User: $mysql_user, Port: $mysql_port";
+        throw new Exception("Connection Failed. Check your Railway 'Variables'. Details: " . $mysql->connect_error . " [$debugInfo]");
     }
 
+    // 2. Select or Create Database
+    if (!$mysql->select_db($mysql_db)) {
+        $mysql->query("CREATE DATABASE IF NOT EXISTS `$mysql_db`") or throw new Exception("Could not create DB '$mysql_db': " . $mysql->error);
+        $mysql->select_db($mysql_db);
+    }
+
+    // 3. Auto-setup table
     $mysql->query("CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
     $mongoCollection = null;
