@@ -11,25 +11,15 @@ try {
     mysqli_report(MYSQLI_REPORT_OFF);
 
     $get_any = function($key) {
-        return $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key) ?: null;
+        $val = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
+        return is_string($val) ? trim($val) : $val;
     };
 
     $env_hosts = array_filter([$get_any('MYSQL_HOST'), $get_any('MYSQLHOST'), 'mysql.railway.internal', 'mysql', '127.0.0.1']);
     $env_users = array_filter([$get_any('MYSQL_USER'), $get_any('MYSQLUSER'), 'root']);
-    $env_passes = [$get_any('MYSQL_PASSWORD'), $get_any('MYSQLPASSWORD'), ""];
+    $env_passes = [(string)$get_any('MYSQL_PASSWORD'), (string)$get_any('MYSQLPASSWORD'), ""];
     $env_ports = array_filter([$get_any('MYSQL_PORT'), $get_any('MYSQLPORT'), 3306]);
     $env_dbs   = array_filter([$get_any('MYSQL_DATABASE'), $get_any('MYSQLDATABASE'), 'railway', 'internship_db']);
-
-    if ($url = $get_any('MYSQL_URL')) {
-        $p = parse_url($url);
-        if ($p) {
-            array_unshift($env_hosts, $p['host'] ?? null);
-            array_unshift($env_users, $p['user'] ?? null);
-            array_unshift($env_passes, $p['pass'] ?? null);
-            array_unshift($env_ports, $p['port'] ?? null);
-            array_unshift($env_dbs, ltrim($p['path'] ?? '', '/') ?: null);
-        }
-    }
 
     $mysql = null;
     $history = [];
@@ -38,7 +28,13 @@ try {
     $users = array_values(array_unique(array_filter($env_users)));
     $passes = array_values(array_unique($env_passes));
     $ports = array_values(array_unique(array_filter($env_ports)));
-    $dbs = array_values(array_unique(array_filter($env_dbs)));
+
+    // DNS Check
+    $dns_info = [];
+    foreach($hosts as $h) {
+        $ip = gethostbyname($h);
+        $dns_info[] = "$h=" . ($ip === $h ? "DNS_FAIL" : $ip);
+    }
 
     foreach ($hosts as $h) {
         foreach ($users as $u) {
@@ -46,15 +42,16 @@ try {
                 foreach ($ports as $prt) {
                     $mysql = @new mysqli($h, $u, $p, "", (int)$prt);
                     if (!$mysql->connect_error) break 4;
-                    $history[] = "$h:$prt=" . $mysql->connect_error;
+                    $history[] = "$h:$prt($u)=" . $mysql->connect_error;
                 }
             }
         }
     }
 
     if (!$mysql || $mysql->connect_error) {
-        $masked_p = ($env_passes[0] && strlen($env_passes[0]) > 0) ? ($env_passes[0][0] . "***") : "EMPTY";
-        throw new Exception("Connection Failed. Diag: H:" . ($hosts[0]??'N/A') . " P_Hint: $masked_p. History: " . implode("|", array_slice($history, -2)));
+        $masked_p = (strlen($env_passes[0]) > 0) ? ($env_passes[0][0] . "***") : "EMPTY";
+        $diag = "DNS: " . implode(",", $dns_info) . " | P_Hint: $masked_p";
+        throw new Exception("MySQL Fail. $diag. Hist: " . implode(" | ", array_unique($history)));
     }
 
     $db_found = false;
