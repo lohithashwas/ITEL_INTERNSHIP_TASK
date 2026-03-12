@@ -28,6 +28,7 @@ try {
     $users = array_values(array_unique(array_filter($env_users)));
     $passes = array_values(array_unique($env_passes));
     $ports = array_values(array_unique(array_filter($env_ports)));
+    $dbs = array_values(array_unique(array_filter($env_dbs)));
 
     // DNS Check
     $dns_info = [];
@@ -40,13 +41,7 @@ try {
         foreach ($users as $u) {
             foreach ($passes as $p) {
                 foreach ($ports as $prt) {
-                    foreach ($env_dbs as $db) {
-                        // TRY 1: Connect with DB name (Essential for Railway permissions)
-                        $mysql = @new mysqli($h, $u, $p, $db, (int)$prt);
-                        if (!$mysql->connect_error) break 5;
-                        $history[] = "$h:$prt($u)->$db=" . $mysql->connect_error;
-                    }
-                    // TRY 2: Connect without DB name (Backup)
+                    // Connect to MySQL server without specifying a database first
                     $mysql = @new mysqli($h, $u, $p, "", (int)$prt);
                     if (!$mysql->connect_error) break 4;
                     $history[] = "$h:$prt($u)=" . $mysql->connect_error;
@@ -62,14 +57,17 @@ try {
     }
 
     $db_found = false;
-    foreach ($env_dbs as $db) {
+    foreach ($dbs as $db) {
         if ($mysql->select_db($db)) {
             $db_found = true;
             break;
         }
     }
     if (!$db_found) {
-        $target_db = $env_dbs[0] ?? 'railway';
+        $target_db = $dbs[0] ?? 'railway';
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $target_db)) {
+            throw new Exception("Invalid database name");
+        }
         $mysql->query("CREATE DATABASE IF NOT EXISTS `$target_db`") or throw new Exception("DB Setup Fail");
         $mysql->select_db($target_db);
     }
