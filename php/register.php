@@ -10,24 +10,35 @@ try {
     // --- Master Smart-Connect (Railway/Docker Exhaustive) ---
     mysqli_report(MYSQLI_REPORT_OFF);
 
-    // 1. Audit Environment (Keys Only)
-    $env_keys = array_keys(array_merge($_ENV, getenv()));
+    // 1. Exhaustive Environment Lookup
+    $get_env = function($key) {
+        return $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key) ?: null;
+    };
+
+    $env_keys = array_keys(array_merge($_ENV, $_SERVER, getenv()));
     $mysql_keys = array_filter($env_keys, function($k) { return strpos($k, 'MYSQL') !== false; });
-    $diag_keys = "Keys found: " . implode(", ", $mysql_keys);
+    
+    $h_val = $get_env('MYSQLHOST') ?: $get_env('MYSQL_HOST') ?: 'mysql.railway.internal';
+    $u_val = $get_env('MYSQLUSER') ?: $get_env('MYSQL_USER') ?: 'root';
+    $p_val = $get_env('MYSQLPASSWORD') ?: $get_env('MYSQL_PASSWORD') ?: "";
+    $prt_val = $get_env('MYSQLPORT') ?: $get_env('MYSQL_PORT') ?: 3306;
+    $db_val = $get_env('MYSQLDATABASE') ?: $get_env('MYSQL_DATABASE') ?: 'railway';
 
-    $hosts = [getenv('MYSQLHOST'), getenv('MYSQL_HOST'), 'mysql.railway.internal', '127.0.0.1'];
-    $users = [getenv('MYSQLUSER'), getenv('MYSQL_USER'), 'root'];
-    $passes = [getenv('MYSQLPASSWORD'), getenv('MYSQL_PASSWORD'), ''];
-    $ports = [getenv('MYSQLPORT'), getenv('MYSQL_PORT'), 3306];
-    $dbs = [getenv('MYSQLDATABASE'), getenv('MYSQL_DATABASE'), 'railway', 'internship_db'];
+    $hosts = [$h_val, 'mysql.railway.internal', '127.0.0.1'];
+    $users = [$u_val, 'root', 'railway'];
+    $passes = [$p_val, ""];
+    $ports = [$prt_val, 3306];
+    $dbs = [$db_val, 'railway', 'internship_db'];
 
-    if ($url = getenv('MYSQL_URL')) {
+    if ($url = $get_env('MYSQL_URL')) {
         $parsed = parse_url($url);
-        array_unshift($hosts, $parsed['host'] ?? null);
-        array_unshift($users, $parsed['user'] ?? null);
-        array_unshift($passes, $parsed['pass'] ?? null);
-        array_unshift($ports, $parsed['port'] ?? null);
-        array_unshift($dbs, ltrim($parsed['path'] ?? '', '/') ?: null);
+        if ($parsed) {
+            array_unshift($hosts, $parsed['host'] ?? null);
+            array_unshift($users, $parsed['user'] ?? null);
+            array_unshift($passes, $parsed['pass'] ?? null);
+            array_unshift($ports, $parsed['port'] ?? null);
+            array_unshift($dbs, ltrim($parsed['path'] ?? '', '/') ?: null);
+        }
     }
 
     $mysql = null;
@@ -43,13 +54,11 @@ try {
         foreach ($users as $u) {
             foreach ($passes as $p) {
                 foreach ($ports as $prt) {
-                    $pass_len = strlen((string)$p);
-                    // Try with and without DB (some users restricted to specific DB)
                     foreach ([true, false] as $with_db) {
-                        $db_to_use = $with_db ? ($dbs[0] ?? 'railway') : "";
+                        $db_to_use = $with_db ? ($dbs[0] ?? "") : "";
                         $mysql = @new mysqli($h, $u, $p, $db_to_use, (int)$prt);
                         if (!$mysql->connect_error) {
-                            break 5; 
+                            break 5;
                         }
                         $last_error = $mysql->connect_error;
                     }
@@ -59,7 +68,8 @@ try {
     }
 
     if (!$mysql || $mysql->connect_error) {
-        throw new Exception("MySQL Fail. $diag_keys. Last Err: $last_error [H:".($hosts[0]??'N/A')." U:".($users[0]??'N/A')." P_Len:".strlen((string)($passes[0]??''))."]");
+        $p_hint = (strlen($p_val) > 0) ? ($p_val[0] . str_repeat('*', strlen($p_val)-1)) : "EMPTY";
+        throw new Exception("MySQL Fail. Keys: ".implode(",", $mysql_keys).". Err: $last_error [H:$h_val U:$u_val P:$p_hint]");
     }
 
     // Select DB from our list
