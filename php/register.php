@@ -40,6 +40,13 @@ try {
         foreach ($users as $u) {
             foreach ($passes as $p) {
                 foreach ($ports as $prt) {
+                    foreach ($dbs as $db) {
+                        // TRY 1: Connect with DB name (Essential for Railway permissions)
+                        $mysql = @new mysqli($h, $u, $p, $db, (int)$prt);
+                        if (!$mysql->connect_error) break 5;
+                        $history[] = "$h:$prt($u)->$db=" . $mysql->connect_error;
+                    }
+                    // TRY 2: Connect without DB name (Backup)
                     $mysql = @new mysqli($h, $u, $p, "", (int)$prt);
                     if (!$mysql->connect_error) break 4;
                     $history[] = "$h:$prt($u)=" . $mysql->connect_error;
